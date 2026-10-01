@@ -2,48 +2,67 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sticgraunds 2D - Multijugador Online y Local</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sticgraunds 2D - Multijugador Online, Local y VS Robots</title>
     <!-- Firebase Config -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap');
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; font-family: 'Permanent Marker', cursive; background: #111; overflow: hidden; user-select: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; font-family: 'Permanent Marker', cursive; background: #111; overflow: hidden; user-select: none; touch-action: none; }
         
         .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; align-items: center; justify-content: center; background: #222; color: white; z-index: 10; }
-        .panel { background: rgba(255,255,255,0.95); padding: 20px; border: 4px solid black; border-radius: 10px; color: black; text-align: center; max-width: 600px; width: 90%; }
+        .panel { background: rgba(255,255,255,0.95); padding: 20px; border: 4px solid black; border-radius: 10px; color: black; text-align: center; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; box-sizing: border-box; }
         
         button, input, select { font-family: inherit; font-size: 1rem; padding: 8px; margin: 5px; border: 3px solid black; border-radius: 8px; cursor: pointer; font-weight: bold; }
         button { background: #ffcc00; transition: 0.1s; }
         button:hover { background: #ffaa00; transform: scale(1.05); }
         button:disabled { background: #ccc; cursor: not-allowed; transform: none; }
 
+        .platform-badge { background: #333; color: #ffcc00; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; border: 2px solid #ffcc00; margin-bottom: 15px; display: inline-block; }
+
         /* UI DEL JUEGO */
         #game-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; pointer-events: none; z-index: 20; }
-        .ui-box { background: rgba(255,255,255,0.85); border: 2px solid black; padding: 10px; pointer-events: auto; display: flex; gap: 5px; flex-wrap: wrap; margin: 10px; border-radius: 8px; }
+        .ui-box { background: rgba(255,255,255,0.85); border: 2px solid black; padding: 8px; pointer-events: auto; display: flex; gap: 5px; flex-wrap: wrap; margin: 10px; border-radius: 8px; }
         
         /* TEMPORIZADOR SUPERIOR */
-        #game-timer { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: #ffcc00; padding: 8px 20px; border: 3px solid white; border-radius: 10px; font-size: 1.8rem; pointer-events: auto; z-index: 25; }
+        #game-timer { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: #ffcc00; padding: 6px 16px; border: 3px solid white; border-radius: 10px; font-size: 1.5rem; pointer-events: auto; z-index: 25; }
 
-        /* BOTÓN SALIR PEQUEÑO */
-        #exit-btn { position: absolute; top: 10px; right: 10px; background: #ff4444; color: white; font-size: 0.8rem; padding: 5px 10px; pointer-events: auto; border: 2px solid black; cursor: pointer; border-radius: 5px;}
+        /* BOTONES SUPERIORES */
+        #top-right-btns { position: absolute; top: 10px; right: 10px; pointer-events: auto; display: flex; gap: 5px; z-index: 30; }
+        .small-btn { font-size: 0.8rem; padding: 5px 10px; border: 2px solid black; border-radius: 5px; cursor: pointer; }
+        #exit-btn { background: #ff4444; color: white; }
         #exit-btn:hover { background: #ff0000; }
+        #mobile-toggle-btn { background: #00ccff; color: black; }
 
         /* CHAT */
-        #chat-container { position: absolute; bottom: 20px; left: 20px; width: 300px; background: rgba(255,255,255,0.9); border: 3px solid black; border-radius: 8px; pointer-events: auto; display: flex; flex-direction: column; }
-        #chat-messages { height: 150px; overflow-y: auto; padding: 5px; font-family: sans-serif; font-size: 14px; text-align: left; }
-        #chat-input { border: none; border-top: 2px solid black; padding: 5px; margin: 0; width: 100%; box-sizing: border-box; outline: none; border-radius: 0 0 5px 5px; }
+        #chat-container { position: absolute; bottom: 20px; left: 20px; width: 280px; max-width: 40vw; background: rgba(255,255,255,0.9); border: 3px solid black; border-radius: 8px; pointer-events: auto; display: flex; flex-direction: column; transition: 0.2s; }
+        #chat-messages { height: 120px; overflow-y: auto; padding: 5px; font-family: sans-serif; font-size: 12px; text-align: left; }
+        #chat-input { border: none; border-top: 2px solid black; padding: 5px; margin: 0; width: 100%; box-sizing: border-box; outline: none; border-radius: 0 0 5px 5px; font-size: 0.9rem; }
 
-        /* CONTROLES LOCALES */
+        /* CONTROLES LOCALES Y VIRTUALES */
         #local-controls { position: absolute; bottom: 10px; right: 10px; background: rgba(255,255,255,0.9); padding: 10px; border: 3px solid black; border-radius: 8px; font-family: sans-serif; font-size: 12px; display: none; text-align: left; pointer-events: none; }
 
+        /* CONTROLES TÁCTILES MÓVIL */
+        #touch-controls { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: none; z-index: 22; }
+        .dpad-container { position: absolute; bottom: 25px; left: 25px; width: 150px; height: 150px; pointer-events: auto; }
+        .dpad-btn { position: absolute; width: 48px; height: 48px; background: rgba(255,255,255,0.7); border: 3px solid black; border-radius: 10px; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; user-select: none; }
+        .dpad-btn:active { background: #ffcc00; }
+        #dpad-up { top: 0; left: 51px; }
+        #dpad-down { bottom: 0; left: 51px; }
+        #dpad-left { top: 51px; left: 0; }
+        #dpad-right { top: 51px; right: 0; }
+
+        .action-btns-container { position: absolute; bottom: 25px; right: 25px; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
+        .action-touch-btn { width: 65px; height: 65px; border-radius: 50%; border: 3px solid black; background: #ffcc00; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 0 black; }
+        .action-touch-btn:active { transform: translateY(4px); box-shadow: none; }
+
         /* PANTALLA CIEGA DEL CAZADOR */
-        #blind-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: black; color: red; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 15; font-size: 3rem; text-align: center; }
+        #blind-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: black; color: red; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 15; font-size: 2.5rem; text-align: center; }
 
         /* PANTALLA DE VICTORIA FINAL */
-        #victory-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); color: white; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; font-size: 3.5rem; text-align: center; }
+        #victory-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); color: white; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; font-size: 3rem; text-align: center; }
         .victory-anim { animation: bounceWin 0.8s infinite alternate; }
         @keyframes bounceWin { from { transform: scale(1); color: #ffcc00; } to { transform: scale(1.1); color: #ff4444; } }
 
@@ -55,15 +74,21 @@
     <!-- MENÚ PRINCIPAL -->
     <div id="menu-screen" class="screen" style="display: flex;">
         <div class="panel">
-            <h1 style="color: #ffaa00; font-size: 3rem; margin-top: 0;">Sticgraunds 2D</h1>
+            <h1 style="color: #ffaa00; font-size: 2.8rem; margin: 0 0 5px 0;">Sticgraunds 2D</h1>
+            <div class="platform-badge">🎮 Multiplataforma (TV, Xbox, Celular, PC) — Se recomienda PC</div>
             
-            <div style="margin-bottom: 20px;">
+            <div style="margin-bottom: 15px;">
                 <input type="text" id="username" placeholder="Tu Nombre (Para Online)" maxlength="12"><br>
                 <button onclick="enterLobby()">🌐 Jugar Online (Salas)</button>
             </div>
+
+            <div style="border-top: 3px dashed #ccc; padding-top: 10px; margin-bottom: 15px;">
+                <h3 style="margin: 5px 0;">🤖 Modo VS Robots (Solo)</h3>
+                <button onclick="showRobotConfig()">Jugar contra Robots (IA)</button>
+            </div>
             
-            <div style="border-top: 3px dashed #ccc; padding-top: 20px;">
-                <h3 style="margin-top: 0;">🎮 Multijugador Local (Pantalla Dividida)</h3>
+            <div style="border-top: 3px dashed #ccc; padding-top: 10px;">
+                <h3 style="margin: 5px 0;">🎮 Multijugador Local (Pantalla Dividida)</h3>
                 <button onclick="startLocalGame(2)">2 Jugadores</button>
                 <button onclick="startLocalGame(3)">3 Jugadores</button>
                 <button onclick="startLocalGame(4)">4 Jugadores</button>
@@ -71,11 +96,40 @@
         </div>
     </div>
 
+    <!-- CONFIGURACIÓN MODO ROBOTS -->
+    <div id="robot-config-screen" class="screen">
+        <div class="panel">
+            <h2>🤖 Configuración VS Robots</h2>
+            <p>Juega solo sin pantalla dividida contra robots que se mueven, se esconden y se transforman solos.</p>
+
+            <div style="margin: 15px 0;">
+                <label><b>Tu Rol:</b></label><br>
+                <select id="robot-player-role">
+                    <option value="hunter">🕵️ Cazador (Tú los buscas)</option>
+                    <option value="hider">🙈 Escondedor (Tú te escondes)</option>
+                </select>
+            </div>
+
+            <div style="margin: 15px 0;">
+                <label><b>Cantidad de Robots:</b></label><br>
+                <select id="robot-count">
+                    <option value="1">1 Robot</option>
+                    <option value="2">2 Robots</option>
+                    <option value="3" selected>3 Robots</option>
+                    <option value="4">4 Robots</option>
+                </select>
+            </div>
+
+            <button onclick="startRobotGame()">🚀 Empezar Partida Robot</button>
+            <button onclick="showScreen('menu-screen')">Volver</button>
+        </div>
+    </div>
+
     <!-- LISTA DE SALAS (ONLINE) -->
     <div id="room-list-screen" class="screen">
         <div class="panel">
             <h2>Salas Disponibles</h2>
-            <div id="rooms-container" style="max-height: 200px; overflow-y: auto; border: 2px solid #ccc; margin-bottom: 15px; padding: 5px; text-align: left;">
+            <div id="rooms-container" style="max-height: 180px; overflow-y: auto; border: 2px solid #ccc; margin-bottom: 15px; padding: 5px; text-align: left;">
                 Cargando salas...
             </div>
             <input type="text" id="new-room-name" placeholder="Nombre de la Sala">
@@ -89,7 +143,7 @@
         <div class="panel">
             <h2 id="lobby-room-name">Sala</h2>
             <p>Jugadores en la sala:</p>
-            <ul id="lobby-players" style="text-align: left; max-height: 150px; overflow-y: auto;"></ul>
+            <ul id="lobby-players" style="text-align: left; max-height: 140px; overflow-y: auto;"></ul>
             <button id="start-game-btn" disabled onclick="hostStartGame()">Empezar Partida (Requiere 2+ Jug.)</button>
             <button onclick="leaveRoom()">Salir de la Sala</button>
         </div>
@@ -99,6 +153,11 @@
     <div id="game-ui">
         <!-- Temporizador en Pantalla -->
         <div id="game-timer">10:00</div>
+
+        <div id="top-right-btns">
+            <button id="mobile-toggle-btn" class="small-btn" onclick="toggleMobileControls()">📱 Modo Celular</button>
+            <button id="exit-btn" class="small-btn" onclick="leaveGame()">X Salir</button>
+        </div>
 
         <div class="ui-box" id="online-controls" style="position: absolute; top: 10px; left: 10px;">
             <span>Forma:</span>
@@ -114,10 +173,7 @@
                 <option value="arbol">Árbol</option>
             </select>
             <button onclick="triggerTaunt()">📢 Burlarse</button>
-            <p style="font-size: 0.7rem; margin:0; width: 100%;">Click: Copiar Color / Cazador Dispara</p>
         </div>
-        
-        <button id="exit-btn" onclick="leaveGame()">X Salir</button>
 
         <div id="chat-container">
             <div id="chat-messages"></div>
@@ -129,7 +185,21 @@
             <b>P2 (Flechas):</b> Copiarse [O] - Burla [P]<br>
             <b>P3 (IJKL):</b> Copiarse [M] - Burla [N]<br>
             <b>P4 (8456 Num):</b> Copiarse [7] - Burla [9]<br>
-            <i>(¡Usa el botón de Disparar en pantalla si eres Cazador!)</i>
+        </div>
+
+        <!-- CONTROLES TÁCTILES PARA MÓVIL/CELULARES -->
+        <div id="touch-controls">
+            <div class="dpad-container">
+                <div class="dpad-btn" id="dpad-up">▲</div>
+                <div class="dpad-btn" id="dpad-left">◄</div>
+                <div class="dpad-btn" id="dpad-right">►</div>
+                <div class="dpad-btn" id="dpad-down">▼</div>
+            </div>
+            <div class="action-btns-container">
+                <div class="action-touch-btn" id="touch-btn-copy" onclick="handleTouchCopy()">🎨</div>
+                <div class="action-touch-btn" id="touch-btn-taunt" onclick="triggerTaunt()">📢</div>
+                <div class="action-touch-btn" id="touch-btn-shoot" style="display:none; background:#ff4444;" onclick="handleTouchShoot()">💥</div>
+            </div>
         </div>
     </div>
 
@@ -231,7 +301,7 @@
     }
 
     // ---------------------------------------------------------
-    // 2. VARIABLES GLOBALES
+    // 2. VARIABLES GLOBALES Y ESTADO
     // ---------------------------------------------------------
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -246,7 +316,14 @@
     let isLocalMode = false;
     let localPlayers = [];
     let localStartTime = 0;
-    let localBullets = []; // Balas rojas del cazador en local
+    let localBullets = [];
+
+    // VARIABLES MODO ROBOTS
+    let isRobotMode = false;
+    let robotStartTime = 0;
+    let robots = [];
+
+    let mobileControlsActive = false;
 
     let mapSeed = 1; 
     let gameLoopRef;
@@ -257,14 +334,33 @@
     const MATCH_DURATION = 600; // 10 minutos
 
     const keys = {};
+    const touchState = { up: false, down: false, left: false, right: false };
+
     window.addEventListener('keydown', e => {
         keys[e.code] = true;
         if(isLocalMode && isPlaying) handleLocalKeyPress(e.code);
     });
     window.addEventListener('keyup', e => keys[e.code] = false);
 
+    // CONFIGURACIÓN DE EVENTOS DE BOTONES TÁCTILES
+    function setupTouchDPad() {
+        const bindTouch = (id, direction) => {
+            const el = document.getElementById(id);
+            if(!el) return;
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); touchState[direction] = true; });
+            el.addEventListener('touchend', (e) => { e.preventDefault(); touchState[direction] = false; });
+            el.addEventListener('mousedown', (e) => { touchState[direction] = true; });
+            el.addEventListener('mouseup', (e) => { touchState[direction] = false; });
+        };
+        bindTouch('dpad-up', 'up');
+        bindTouch('dpad-down', 'down');
+        bindTouch('dpad-left', 'left');
+        bindTouch('dpad-right', 'right');
+    }
+    setupTouchDPad();
+
     // ---------------------------------------------------------
-    // 3. NAVEGACIÓN GENERAL
+    // 3. NAVEGACIÓN Y CONFIGURACIÓN MÓVIL
     // ---------------------------------------------------------
     function showScreen(id) {
         document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
@@ -274,16 +370,272 @@
         if(id) document.getElementById(id).style.display = 'flex';
     }
 
+    function toggleMobileControls() {
+        mobileControlsActive = !mobileControlsActive;
+        const touchUI = document.getElementById('touch-controls');
+        const chatContainer = document.getElementById('chat-container');
+        
+        if (mobileControlsActive) {
+            touchUI.style.display = 'block';
+            chatContainer.style.bottom = '180px';
+            chatContainer.style.left = '10px';
+            chatContainer.style.width = '200px';
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            }
+        } else {
+            touchUI.style.display = 'none';
+            chatContainer.style.bottom = '20px';
+            chatContainer.style.left = '20px';
+            chatContainer.style.width = '280px';
+            if (document.exitFullscreen && document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+        updateActionButtons();
+    }
+
+    function updateActionButtons() {
+        const shootBtn = document.getElementById('touch-btn-shoot');
+        const copyBtn = document.getElementById('touch-btn-copy');
+        if (myPlayer.isHunter) {
+            if(shootBtn) shootBtn.style.display = 'flex';
+            if(copyBtn) copyBtn.style.display = 'none';
+        } else {
+            if(shootBtn) shootBtn.style.display = 'none';
+            if(copyBtn) copyBtn.style.display = 'flex';
+        }
+    }
+
+    function handleTouchCopy() {
+        if (!myPlayer.isHunter) {
+            for(let obj of mapObjects) {
+                if (Math.hypot(myPlayer.x - obj.x, myPlayer.y - obj.y) < 80) {
+                    myPlayer.color = obj.color;
+                    changeMyShape(obj.type);
+                    break;
+                }
+            }
+        }
+    }
+
+    function handleTouchShoot() {
+        if (myPlayer.isHunter) {
+            playSound('catch');
+            if (isRobotMode) {
+                robots.forEach(r => {
+                    if (!r.isHunter && Math.hypot(myPlayer.x - r.x, myPlayer.y - r.y) < 100) {
+                        r.isHunter = true;
+                        r.color = '#ff0000';
+                        r.shape = 'stickman';
+                        playSound('catch');
+                    }
+                });
+            } else if (!isLocalMode) {
+                for (const pName in allPlayers) {
+                    if (pName !== playerName && !allPlayers[pName].isHunter) {
+                        if (Math.hypot(myPlayer.x - allPlayers[pName].x, myPlayer.y - allPlayers[pName].y) < 100) {
+                            db.ref(`rooms/${roomId}/players/${pName}`).update({ isHunter: true, color: '#ff0000', shape: 'stickman' });
+                            db.ref(`rooms/${roomId}/chat`).push({ sender: 'SISTEMA', text: `¡${playerName} ha cazado a ${pName}!` });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     function leaveGame() {
         stopBackgroundMusic();
-        if(isLocalMode) {
-            isLocalMode = false;
-            isPlaying = false;
-            cancelAnimationFrame(gameLoopRef);
-            showScreen('menu-screen');
-        } else {
-            leaveRoom();
+        isPlaying = false;
+        isLocalMode = false;
+        isRobotMode = false;
+        cancelAnimationFrame(gameLoopRef);
+        if(roomId) leaveRoom();
+        else showScreen('menu-screen');
+    }
+
+    // =========================================================
+    // MODO ROBOTS (VS IA INDIVIDUAL)
+    // =========================================================
+    function showRobotConfig() {
+        showScreen('robot-config-screen');
+    }
+
+    function startRobotGame() {
+        initAudio();
+        isRobotMode = true;
+        isLocalMode = false;
+        isPlaying = true;
+        robotStartTime = Date.now();
+        mapSeed = Math.floor(Math.random() * 999999);
+        generateProceduralMap(mapSeed);
+        startBackgroundMusic();
+
+        const role = document.getElementById('robot-player-role').value;
+        const count = parseInt(document.getElementById('robot-count').value);
+
+        myPlayer = {
+            x: MAP_WIDTH/2,
+            y: MAP_HEIGHT/2,
+            color: role === 'hunter' ? '#ff0000' : '#3498db',
+            shape: 'stickman',
+            isHunter: role === 'hunter',
+            tauntTime: 0
+        };
+
+        robots = [];
+        const shapesList = ['sillon', 'tv', 'inodoro', 'cuadro', 'camara', 'estatua', 'pared', 'arbol'];
+
+        for(let i = 0; i < count; i++) {
+            let robotIsHunter = (role === 'hider' && i === 0);
+            robots.push({
+                id: i + 1,
+                x: MAP_WIDTH/2 + (Math.random()*800 - 400),
+                y: MAP_HEIGHT/2 + (Math.random()*800 - 400),
+                targetX: Math.random() * MAP_WIDTH,
+                targetY: Math.random() * MAP_HEIGHT,
+                color: robotIsHunter ? '#ff0000' : '#2ecc71',
+                shape: robotIsHunter ? 'stickman' : 'stickman',
+                isHunter: robotIsHunter,
+                tauntTime: 0,
+                nextTransformTime: Date.now() + Math.random() * 5000 + 3000,
+                nextTauntTime: Date.now() + Math.random() * 10000 + 5000
+            });
         }
+
+        showScreen('');
+        canvas.style.display = 'block';
+        document.getElementById('game-ui').style.display = 'flex';
+        
+        document.getElementById('online-controls').style.display = role === 'hunter' ? 'none' : 'flex';
+        document.getElementById('chat-container').style.display = 'none';
+        document.getElementById('local-controls').style.display = 'none';
+
+        updateActionButtons();
+        resizeCanvas();
+
+        if (myPlayer.isHunter) {
+            document.getElementById('blind-screen').style.display = 'flex';
+            let blindInt = setInterval(() => {
+                let passed = Math.floor((Date.now() - robotStartTime) / 1000);
+                let left = 20 - passed;
+                if(left <= 0 || !isPlaying) {
+                    document.getElementById('blind-screen').style.display = 'none';
+                    clearInterval(blindInt);
+                } else {
+                    document.getElementById('blind-timer').innerText = left;
+                }
+            }, 1000);
+        } else {
+            document.getElementById('blind-screen').style.display = 'none';
+        }
+
+        robotGameLoop();
+    }
+
+    function updateRobotAI() {
+        const passedTime = Math.floor((Date.now() - robotStartTime) / 1000);
+
+        robots.forEach(r => {
+            if (r.isHunter && passedTime < 20) return; // Espera en blind screen
+
+            // Movimiento hacia objetivo
+            let dist = Math.hypot(r.targetX - r.x, r.targetY - r.y);
+            if (dist < 30 || Math.random() < 0.005) {
+                r.targetX = Math.max(100, Math.min(MAP_WIDTH - 100, r.x + (Math.random()*1000 - 500)));
+                r.targetY = Math.max(100, Math.min(MAP_HEIGHT - 100, r.y + (Math.random()*1000 - 500)));
+            } else {
+                let speed = r.isHunter ? 5.5 : 3.5;
+                r.x += ((r.targetX - r.x) / dist) * speed;
+                r.y += ((r.targetY - r.y) / dist) * speed;
+            }
+
+            // Transformación de los robots escondedores
+            if (!r.isHunter && Date.now() > r.nextTransformTime) {
+                for (let obj of mapObjects) {
+                    if (Math.hypot(r.x - obj.x, r.y - obj.y) < 120) {
+                        r.shape = obj.type;
+                        r.color = obj.color;
+                        break;
+                    }
+                }
+                r.nextTransformTime = Date.now() + Math.random() * 8000 + 4000;
+            }
+
+            // Burlas aleatorias de robots escondedores
+            if (!r.isHunter && Date.now() > r.nextTauntTime) {
+                r.tauntTime = Date.now();
+                playSound('taunt');
+                r.nextTauntTime = Date.now() + Math.random() * 15000 + 8000;
+            }
+
+            // Robot Cazador buscando
+            if (r.isHunter) {
+                if (!myPlayer.isHunter && Math.hypot(r.x - myPlayer.x, r.y - myPlayer.y) < 45) {
+                    myPlayer.isHunter = true;
+                    myPlayer.color = '#ff0000';
+                    myPlayer.shape = 'stickman';
+                    playSound('catch');
+                }
+            }
+        });
+    }
+
+    function robotGameLoop() {
+        if(!isPlaying || !isRobotMode) return;
+
+        let timeLeft = updateTimerDisplay(robotStartTime);
+        updateRobotAI();
+
+        // Movimiento Jugador
+        let speed = myPlayer.isHunter ? 7 : 5;
+        if (keys['KeyW'] || keys['ArrowUp'] || touchState.up) myPlayer.y -= speed;
+        if (keys['KeyS'] || keys['ArrowDown'] || touchState.down) myPlayer.y += speed;
+        if (keys['KeyA'] || keys['ArrowLeft'] || touchState.left) myPlayer.x -= speed;
+        if (keys['KeyD'] || keys['ArrowRight'] || touchState.right) myPlayer.x += speed;
+
+        myPlayer.x = Math.max(0, Math.min(MAP_WIDTH, myPlayer.x));
+        myPlayer.y = Math.max(0, Math.min(MAP_HEIGHT, myPlayer.y));
+
+        // Condición de Victoria
+        let allEntities = [myPlayer, ...robots];
+        let hidersRemaining = allEntities.filter(e => !e.isHunter).length;
+
+        if (hidersRemaining === 0) {
+            triggerVictoryScreen("¡EL CAZADOR ATRAPÓ A TODOS Y GANA!");
+            return;
+        } else if (timeLeft <= 0) {
+            triggerVictoryScreen("¡LOS ESCONDEDORES SOBREVIVIERON! ¡GANAN! ¡Jajajaj! 😜");
+            return;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.translate(canvas.width/2 - myPlayer.x, canvas.height/2 - myPlayer.y);
+
+        ctx.fillStyle = '#444'; ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+        for(let i=0; i<MAP_WIDTH; i+=100) {
+            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, MAP_HEIGHT); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(MAP_WIDTH, i); ctx.stroke();
+        }
+
+        mapObjects.forEach(obj => {
+            if (obj.x > myPlayer.x - canvas.width/2 - 100 && obj.x < myPlayer.x + canvas.width/2 + 100 &&
+                obj.y > myPlayer.y - canvas.height/2 - 100 && obj.y < myPlayer.y + canvas.height/2 + 100) {
+                drawEntity(ctx, obj.x, obj.y, obj.type, obj.color, false);
+            }
+        });
+
+        robots.forEach(r => {
+            drawEntity(ctx, r.x, r.y, r.shape, r.color, r.isHunter);
+            if (myPlayer.isHunter && r.tauntTime && Date.now() - r.tauntTime < 4000) drawTauntArrow(myPlayer.x, myPlayer.y, r.x, r.y);
+        });
+
+        drawEntity(ctx, myPlayer.x, myPlayer.y, myPlayer.shape, myPlayer.color, myPlayer.isHunter);
+        ctx.restore();
+
+        gameLoopRef = requestAnimationFrame(robotGameLoop);
     }
 
     // =========================================================
@@ -309,7 +661,7 @@
                 const room = rooms[key];
                 let pCount = room.players ? Object.keys(room.players).length : 0;
                 container.innerHTML += `
-                    <div style="border-bottom:1px solid #999; padding:5px; display:flex; justify-content:space-between;">
+                    <div style="border-bottom:1px solid #999; padding:5px; display:flex; justify-content:space-between; align-items:center;">
                         <span><strong>${room.name}</strong> (${room.status}) - Jugadores: ${pCount}</span>
                         <button onclick="joinRoom('${key}')" ${room.status==='playing'?'disabled':''}>Unirse</button>
                     </div>
@@ -412,15 +764,17 @@
 
     function startOnlineGame(startTime) {
         isLocalMode = false;
+        isRobotMode = false;
         isPlaying = true;
         showScreen(''); 
         canvas.style.display = 'block';
         document.getElementById('game-ui').style.display = 'flex';
         
-        document.getElementById('online-controls').style.display = 'flex';
+        document.getElementById('online-controls').style.display = myPlayer.isHunter ? 'none' : 'flex';
         document.getElementById('chat-container').style.display = 'flex';
         document.getElementById('local-controls').style.display = 'none';
 
+        updateActionButtons();
         resizeCanvas();
         generateProceduralMap(mapSeed);
         startBackgroundMusic();
@@ -443,11 +797,12 @@
     }
 
     // =========================================================
-    // MODO LOCAL (Pantalla Dividida con Botón de Disparo)
+    // MODO LOCAL (Pantalla Dividida)
     // =========================================================
     function startLocalGame(playerCount) {
         initAudio();
         isLocalMode = true;
+        isRobotMode = false;
         isPlaying = true;
         localStartTime = Date.now();
         localBullets = [];
@@ -465,8 +820,7 @@
                 color: baseColors[i],
                 shape: 'stickman',
                 isHunter: false,
-                tauntTime: 0,
-                attackTimer: 0
+                tauntTime: 0
             });
         }
         
@@ -488,18 +842,10 @@
 
     function handleLocalKeyPress(code) {
         localPlayers.forEach(p => {
-            let tauntKey = '';
-            if(p.id === 1) tauntKey = 'KeyV';
-            if(p.id === 2) tauntKey = 'KeyP';
-            if(p.id === 3) tauntKey = 'KeyN';
-            if(p.id === 4) tauntKey = 'Digit9'; 
+            let tauntKey = p.id === 1 ? 'KeyV' : p.id === 2 ? 'KeyP' : p.id === 3 ? 'KeyN' : 'Digit9';
             if(p.id === 4 && code.includes('Numpad9')) tauntKey = 'Numpad9';
 
-            let actKey = '';
-            if(p.id === 1) actKey = 'KeyC';
-            if(p.id === 2) actKey = 'KeyO';
-            if(p.id === 3) actKey = 'KeyM';
-            if(p.id === 4) actKey = 'Digit7';
+            let actKey = p.id === 1 ? 'KeyC' : p.id === 2 ? 'KeyO' : p.id === 3 ? 'KeyM' : 'Digit7';
             if(p.id === 4 && code.includes('Numpad7')) actKey = 'Numpad7';
 
             if(code === actKey && !p.isHunter) {
@@ -519,7 +865,7 @@
     }
 
     // =========================================================
-    // LÓGICA GRÁFICA Y BUCLES
+    // LÓGICA GRÁFICA Y BUCLES PRINCIPALES
     // =========================================================
     function seededRandom(max, min = 0) {
         mapSeed = (mapSeed * 9301 + 49297) % 233280;
@@ -554,17 +900,17 @@
 
     // BUCLE ONLINE
     function onlineGameLoop() {
-        if(!isPlaying || isLocalMode) return;
+        if(!isPlaying || isLocalMode || isRobotMode) return;
 
         let startTime = 0;
         db.ref(`rooms/${roomId}/startTime`).once('value', snap => { startTime = snap.val() || Date.now(); });
         let timeLeft = updateTimerDisplay(startTime);
 
         let speed = myPlayer.isHunter ? 7 : 5;
-        if (keys['KeyW'] || keys['ArrowUp']) myPlayer.y -= speed;
-        if (keys['KeyS'] || keys['ArrowDown']) myPlayer.y += speed;
-        if (keys['KeyA'] || keys['ArrowLeft']) myPlayer.x -= speed;
-        if (keys['KeyD'] || keys['ArrowRight']) myPlayer.x += speed;
+        if (keys['KeyW'] || keys['ArrowUp'] || touchState.up) myPlayer.y -= speed;
+        if (keys['KeyS'] || keys['ArrowDown'] || touchState.down) myPlayer.y += speed;
+        if (keys['KeyA'] || keys['ArrowLeft'] || touchState.left) myPlayer.x -= speed;
+        if (keys['KeyD'] || keys['ArrowRight'] || touchState.right) myPlayer.x += speed;
 
         myPlayer.x = Math.max(0, Math.min(MAP_WIDTH, myPlayer.x));
         myPlayer.y = Math.max(0, Math.min(MAP_HEIGHT, myPlayer.y));
@@ -622,40 +968,25 @@
 
         let timeLeft = updateTimerDisplay(localStartTime);
 
-        // Actualizar balas rojas en local (vida de 7 segundos: 7000 ms)
         for (let i = localBullets.length - 1; i >= 0; i--) {
             let b = localBullets[i];
-            b.x += b.vx;
-            b.y += b.vy;
-
-            if (Date.now() - b.birthTime > 7000) {
-                localBullets.splice(i, 1);
-                continue;
-            }
+            b.x += b.vx; b.y += b.vy;
+            if (Date.now() - b.birthTime > 7000) { localBullets.splice(i, 1); continue; }
 
             let hit = false;
             for (let target of localPlayers) {
                 if (!target.isHunter && Math.hypot(b.x - target.x, b.y - target.y) < 35) {
-                    target.isHunter = true;
-                    target.shape = 'stickman';
-                    target.color = '#ff0000';
-                    playSound('catch');
-                    hit = true;
-                    break;
+                    target.isHunter = true; target.shape = 'stickman'; target.color = '#ff0000';
+                    playSound('catch'); hit = true; break;
                 }
             }
-            if (hit) {
-                localBullets.splice(i, 1);
-            }
+            if (hit) localBullets.splice(i, 1);
         }
 
-        let allHunters = localPlayers.every(p => p.isHunter);
-        if (allHunters) {
-            triggerVictoryScreen("¡EL CAZADOR ATRAPÓ A TODOS Y GANA!");
-            return;
+        if (localPlayers.every(p => p.isHunter)) {
+            triggerVictoryScreen("¡EL CAZADOR ATRAPÓ A TODOS Y GANA!"); return;
         } else if (timeLeft <= 0) {
-            triggerVictoryScreen("¡LOS ESCONDEDORES SOBREVIVIERON! ¡GANAN! ¡Jajajaj! 😜");
-            return;
+            triggerVictoryScreen("¡LOS ESCONDEDORES SOBREVIVIERON! ¡GANAN! ¡Jajajaj! 😜"); return;
         }
 
         localPlayers.forEach(p => {
@@ -707,15 +1038,9 @@
                 }
             });
 
-            // Dibujar balas rojas en la vista
             localBullets.forEach(b => {
-                ctx.fillStyle = '#ff0000';
-                ctx.strokeStyle = 'white';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.arc(b.x, b.y, 8, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.stroke();
+                ctx.fillStyle = '#ff0000'; ctx.strokeStyle = 'white'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(b.x, b.y, 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
             });
 
             localPlayers.forEach(other => {
@@ -728,31 +1053,16 @@
             drawEntity(ctx, p.x, p.y, p.shape, p.color, p.isHunter);
             ctx.restore();
 
-            // Dibujar botón de disparo en pantalla para el cazador local
             if (p.isHunter) {
                 ctx.save();
                 ctx.fillStyle = 'rgba(255, 0, 0, 0.85)';
                 ctx.fillRect(vx + w - 130, vy + h - 65, 115, 45);
-                ctx.strokeStyle = 'white';
-                ctx.lineWidth = 3;
+                ctx.strokeStyle = 'white'; ctx.lineWidth = 3;
                 ctx.strokeRect(vx + w - 130, vy + h - 65, 115, 45);
-                ctx.fillStyle = 'white';
-                ctx.font = '18px "Permanent Marker"';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
+                ctx.fillStyle = 'white'; ctx.font = '18px "Permanent Marker"';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 ctx.fillText("💥 DISPARAR", vx + w - 72, vy + h - 42);
                 ctx.restore();
-
-                let passed = Math.floor((Date.now() - localStartTime) / 1000);
-                let left = 20 - passed;
-                if (left > 0) {
-                    ctx.save();
-                    ctx.fillStyle = 'black'; ctx.fillRect(vx, vy, w, h);
-                    ctx.fillStyle = 'red'; ctx.font = '30px "Permanent Marker"'; ctx.textAlign = 'center';
-                    ctx.fillText("¡ERES EL CAZADOR!", vx + w/2, vy + h/2 - 20);
-                    ctx.fillStyle = 'white'; ctx.fillText(`Espera ${left}s`, vx + w/2, vy + h/2 + 20);
-                    ctx.restore();
-                }
             }
         });
 
@@ -775,14 +1085,22 @@
         document.getElementById('game-ui').style.display = 'none';
     }
 
-    // INTERACCIONES Y CLICS (Mouse y Táctil)
-    function changeMyShape(shape) { if(!isLocalMode) { myPlayer.shape = shape; db.ref(`rooms/${roomId}/players/${playerName}`).update({ shape: shape }); } }
+    // INTERACCIONES DE CLIC / TOQUE
+    function changeMyShape(shape) { 
+        myPlayer.shape = shape; 
+        if(!isLocalMode && !isRobotMode && roomId) { 
+            db.ref(`rooms/${roomId}/players/${playerName}`).update({ shape: shape }); 
+        } 
+    }
+
     function triggerTaunt() { 
-        if(!isLocalMode && !myPlayer.isHunter) { 
+        if(!myPlayer.isHunter) { 
             let t = Date.now(); 
             myPlayer.tauntTime = t; 
             playSound('taunt');
-            db.ref(`rooms/${roomId}/players/${playerName}`).update({ tauntTime: t }); 
+            if(!isLocalMode && !isRobotMode && roomId) {
+                db.ref(`rooms/${roomId}/players/${playerName}`).update({ tauntTime: t }); 
+            }
         } 
     }
 
@@ -800,24 +1118,33 @@
                 let vx = col * w; let vy = row * h;
 
                 if (p.isHunter) {
-                    let btnX = vx + w - 130;
-                    let btnY = vy + h - 65;
-                    let btnW = 115;
-                    let btnH = 45;
-
-                    if (e.clientX >= btnX && e.clientX <= btnX + btnW && e.clientY >= btnY && e.clientY <= btnY + btnH) {
+                    let btnX = vx + w - 130; let btnY = vy + h - 65;
+                    if (e.clientX >= btnX && e.clientX <= btnX + 115 && e.clientY >= btnY && e.clientY <= btnY + 45) {
                         playSound('shoot');
-                        let speed = 12;
-                        localBullets.push({
-                            x: p.x,
-                            y: p.y,
-                            vx: speed,
-                            vy: 0,
-                            birthTime: Date.now()
-                        });
+                        localBullets.push({ x: p.x, y: p.y, vx: 12, vy: 0, birthTime: Date.now() });
                     }
                 }
             });
+        } else if (isRobotMode) {
+            if (myPlayer.isHunter) {
+                const clickX = myPlayer.x + (e.clientX - canvas.width/2);
+                const clickY = myPlayer.y + (e.clientY - canvas.height/2);
+                playSound('catch');
+                robots.forEach(r => {
+                    if (!r.isHunter && Math.hypot(clickX - r.x, clickY - r.y) < 50) {
+                        r.isHunter = true;
+                        r.color = '#ff0000';
+                        r.shape = 'stickman';
+                        playSound('catch');
+                    }
+                });
+            } else {
+                for(let obj of mapObjects) {
+                    if (Math.hypot(myPlayer.x - obj.x, myPlayer.y - obj.y) < 80) {
+                        myPlayer.color = obj.color; changeMyShape(obj.type); break;
+                    }
+                }
+            }
         } else {
             if (myPlayer.isHunter) {
                 const clickX = myPlayer.x + (e.clientX - canvas.width/2);
@@ -831,7 +1158,6 @@
                         }
                     }
                 }
-                ctx.strokeStyle = 'yellow'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(canvas.width/2, canvas.height/2); ctx.lineTo(e.clientX, e.clientY); ctx.stroke();
             } else {
                 for(let obj of mapObjects) {
                     if (Math.hypot(myPlayer.x - obj.x, myPlayer.y - obj.y) < 80) {
@@ -844,14 +1170,14 @@
 
     // CHAT ONLINE
     function sendChat(e) {
-        if(e.key === 'Enter' && roomId && !isLocalMode) {
+        if(e.key === 'Enter' && roomId && !isLocalMode && !isRobotMode) {
             const input = document.getElementById('chat-input');
             const txt = input.value.trim();
             if(txt !== "") { db.ref(`rooms/${roomId}/chat`).push({ sender: playerName, text: txt }); input.value = ""; }
         }
     }
 
-    // DIBUJO PURO
+    // DIBUJO DE ENTIDADES
     function drawEntity(ctx, x, y, shape, color, isHunter) {
         ctx.save(); ctx.translate(x, y);
         ctx.fillStyle = color; ctx.strokeStyle = 'black'; ctx.lineWidth = 3;
