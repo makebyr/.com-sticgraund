@@ -26,8 +26,9 @@
         #game-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; pointer-events: none; z-index: 20; }
         .ui-box { background: rgba(255,255,255,0.85); border: 2px solid black; padding: 8px; pointer-events: auto; display: flex; gap: 5px; flex-wrap: wrap; margin: 10px; border-radius: 8px; }
         
-        /* TEMPORIZADOR SUPERIOR */
-        #game-timer { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: #ffcc00; padding: 6px 16px; border: 3px solid white; border-radius: 10px; font-size: 1.5rem; pointer-events: auto; z-index: 25; }
+        /* TEMPORIZADOR Y CONTADOR DE PERSONAS */
+        #game-timer { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: #ffcc00; padding: 6px 16px; border: 3px solid white; border-radius: 10px; font-size: 1.5rem; pointer-events: auto; z-index: 25; text-align: center; }
+        #people-counter { position: absolute; top: 62px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: #00ffcc; padding: 4px 14px; border: 2px solid white; border-radius: 8px; font-size: 1rem; pointer-events: auto; z-index: 25; font-family: sans-serif; font-weight: bold; white-space: nowrap; }
 
         /* BOTONES SUPERIORES */
         #top-right-btns { position: absolute; top: 10px; right: 10px; pointer-events: auto; display: flex; gap: 5px; z-index: 30; }
@@ -151,8 +152,9 @@
 
     <!-- UI DEL JUEGO -->
     <div id="game-ui">
-        <!-- Temporizador en Pantalla -->
+        <!-- Temporizador y Contador de Escondedores -->
         <div id="game-timer">10:00</div>
+        <div id="people-counter">👥 Escondedores: <span id="hiders-count">0</span></div>
 
         <div id="top-right-btns">
             <button id="mobile-toggle-btn" class="small-btn" onclick="toggleMobileControls()">📱 Modo Celular</button>
@@ -305,6 +307,10 @@
     // ---------------------------------------------------------
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
+
+    // CANVAS AUXILIAR PARA SISTEMA DE LUCES Y SOMBRAS
+    const lightCanvas = document.createElement('canvas');
+    const lightCtx = lightCanvas.getContext('2d');
     
     let playerName = "";
     let roomId = null;
@@ -331,6 +337,7 @@
     const MAP_WIDTH = 3000;
     const MAP_HEIGHT = 3000;
     let mapObjects = [];
+    let mapLights = []; // Puntos de luz en el mapa (farolas/lámparas)
     const MATCH_DURATION = 600; // 10 minutos
 
     const keys = {};
@@ -484,7 +491,6 @@
         };
 
         robots = [];
-        const shapesList = ['sillon', 'tv', 'inodoro', 'cuadro', 'camara', 'estatua', 'pared', 'arbol'];
 
         for(let i = 0; i < count; i++) {
             let robotIsHunter = (role === 'hider' && i === 0);
@@ -537,9 +543,8 @@
         const passedTime = Math.floor((Date.now() - robotStartTime) / 1000);
 
         robots.forEach(r => {
-            if (r.isHunter && passedTime < 20) return; // Espera en blind screen
+            if (r.isHunter && passedTime < 20) return;
 
-            // Movimiento hacia objetivo
             let dist = Math.hypot(r.targetX - r.x, r.targetY - r.y);
             if (dist < 30 || Math.random() < 0.005) {
                 r.targetX = Math.max(100, Math.min(MAP_WIDTH - 100, r.x + (Math.random()*1000 - 500)));
@@ -550,7 +555,6 @@
                 r.y += ((r.targetY - r.y) / dist) * speed;
             }
 
-            // Transformación de los robots escondedores
             if (!r.isHunter && Date.now() > r.nextTransformTime) {
                 for (let obj of mapObjects) {
                     if (Math.hypot(r.x - obj.x, r.y - obj.y) < 120) {
@@ -562,14 +566,12 @@
                 r.nextTransformTime = Date.now() + Math.random() * 8000 + 4000;
             }
 
-            // Burlas aleatorias de robots escondedores
             if (!r.isHunter && Date.now() > r.nextTauntTime) {
                 r.tauntTime = Date.now();
                 playSound('taunt');
                 r.nextTauntTime = Date.now() + Math.random() * 15000 + 8000;
             }
 
-            // Robot Cazador buscando
             if (r.isHunter) {
                 if (!myPlayer.isHunter && Math.hypot(r.x - myPlayer.x, r.y - myPlayer.y) < 45) {
                     myPlayer.isHunter = true;
@@ -587,7 +589,6 @@
         let timeLeft = updateTimerDisplay(robotStartTime);
         updateRobotAI();
 
-        // Movimiento Jugador
         let speed = myPlayer.isHunter ? 7 : 5;
         if (keys['KeyW'] || keys['ArrowUp'] || touchState.up) myPlayer.y -= speed;
         if (keys['KeyS'] || keys['ArrowDown'] || touchState.down) myPlayer.y += speed;
@@ -597,9 +598,9 @@
         myPlayer.x = Math.max(0, Math.min(MAP_WIDTH, myPlayer.x));
         myPlayer.y = Math.max(0, Math.min(MAP_HEIGHT, myPlayer.y));
 
-        // Condición de Victoria
         let allEntities = [myPlayer, ...robots];
         let hidersRemaining = allEntities.filter(e => !e.isHunter).length;
+        document.getElementById('hiders-count').innerText = hidersRemaining;
 
         if (hidersRemaining === 0) {
             triggerVictoryScreen("¡EL CAZADOR ATRAPÓ A TODOS Y GANA!");
@@ -613,8 +614,8 @@
         ctx.save();
         ctx.translate(canvas.width/2 - myPlayer.x, canvas.height/2 - myPlayer.y);
 
-        ctx.fillStyle = '#444'; ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
-        ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+        ctx.fillStyle = '#1a1a24'; ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+        ctx.strokeStyle = '#282838'; ctx.lineWidth = 2;
         for(let i=0; i<MAP_WIDTH; i+=100) {
             ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, MAP_HEIGHT); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(MAP_WIDTH, i); ctx.stroke();
@@ -634,6 +635,11 @@
 
         drawEntity(ctx, myPlayer.x, myPlayer.y, myPlayer.shape, myPlayer.color, myPlayer.isHunter);
         ctx.restore();
+
+        // RENDERIZAR SISTEMA DE LUCES DINÁMICAS
+        let extraLights = robots.map(r => ({ x: r.x, y: r.y, radius: r.isHunter ? 220 : 130 }));
+        mapLights.forEach(l => extraLights.push({ x: l.x, y: l.y, radius: l.radius }));
+        drawLightingSystem(ctx, myPlayer.x, myPlayer.y, canvas.width, canvas.height, myPlayer.isHunter ? 300 : 200, extraLights);
 
         gameLoopRef = requestAnimationFrame(robotGameLoop);
     }
@@ -865,7 +871,7 @@
     }
 
     // =========================================================
-    // LÓGICA GRÁFICA Y BUCLES PRINCIPALES
+    // LÓGICA GRÁFICA, LUCES Y BUCLES PRINCIPALES
     // =========================================================
     function seededRandom(max, min = 0) {
         mapSeed = (mapSeed * 9301 + 49297) % 233280;
@@ -876,16 +882,29 @@
     function generateProceduralMap(seed) {
         mapSeed = seed;
         mapObjects = [];
+        mapLights = [];
         const objectTypes = ['sillon', 'tv', 'inodoro', 'cuadro', 'estatua', 'pared', 'arbol'];
         const colors = ['#8B4513', '#555555', '#ecf0f1', '#f39c12', '#7f8c8d', '#c0392b', '#27ae60'];
 
         for(let i = 0; i < 400; i++) {
             let typeIdx = Math.floor(seededRandom(objectTypes.length));
-            mapObjects.push({ x: seededRandom(MAP_WIDTH), y: seededRandom(MAP_HEIGHT), type: objectTypes[typeIdx], color: colors[typeIdx] });
+            let objX = seededRandom(MAP_WIDTH);
+            let objY = seededRandom(MAP_HEIGHT);
+            mapObjects.push({ x: objX, y: objY, type: objectTypes[typeIdx], color: colors[typeIdx] });
+
+            // Generar farolas/luces ambientales fijas en el mapa
+            if (i % 15 === 0) {
+                mapLights.push({ x: objX, y: objY, radius: 180 });
+            }
         }
     }
 
-    function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    function resizeCanvas() { 
+        canvas.width = window.innerWidth; 
+        canvas.height = window.innerHeight;
+        lightCanvas.width = window.innerWidth;
+        lightCanvas.height = window.innerHeight;
+    }
     window.addEventListener('resize', resizeCanvas);
 
     function updateTimerDisplay(startTime) {
@@ -896,6 +915,48 @@
         let secs = timeLeft % 60;
         document.getElementById('game-timer').innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
         return timeLeft;
+    }
+
+    // DIBUJA LA CAPA DE OSCURIDAD Y LAS FUENTES DE LUZ
+    function drawLightingSystem(targetCtx, centerX, centerY, viewWidth, viewHeight, pLightRadius, extraLights = [], offsetX = 0, offsetY = 0) {
+        lightCtx.clearRect(0, 0, lightCanvas.width, lightCanvas.height);
+
+        // Capa de noche/oscuridad ambiental
+        lightCtx.fillStyle = 'rgba(8, 8, 16, 0.82)';
+        lightCtx.fillRect(0, 0, viewWidth, viewHeight);
+
+        lightCtx.globalCompositeOperation = 'destination-out';
+
+        // Luz principal del jugador activo
+        let screenPx = viewWidth / 2;
+        let screenPy = viewHeight / 2;
+        let grad = lightCtx.createRadialGradient(screenPx, screenPy, 20, screenPx, screenPy, pLightRadius);
+        grad.addColorStop(0, 'rgba(0,0,0,1)');
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        lightCtx.fillStyle = grad;
+        lightCtx.beginPath();
+        lightCtx.arc(screenPx, screenPy, pLightRadius, 0, Math.PI * 2);
+        lightCtx.fill();
+
+        // Luces adicionales (robots, farolas u otros jugadores)
+        extraLights.forEach(light => {
+            let sx = light.x - (centerX - viewWidth / 2);
+            let sy = light.y - (centerY - viewHeight / 2);
+            let r = light.radius || 150;
+
+            if (sx > -r && sx < viewWidth + r && sy > -r && sy < viewHeight + r) {
+                let g = lightCtx.createRadialGradient(sx, sy, 10, sx, sy, r);
+                g.addColorStop(0, 'rgba(0,0,0,1)');
+                g.addColorStop(1, 'rgba(0,0,0,0)');
+                lightCtx.fillStyle = g;
+                lightCtx.beginPath();
+                lightCtx.arc(sx, sy, r, 0, Math.PI * 2);
+                lightCtx.fill();
+            }
+        });
+
+        lightCtx.globalCompositeOperation = 'source-over';
+        targetCtx.drawImage(lightCanvas, 0, 0, viewWidth, viewHeight, offsetX, offsetY, viewWidth, viewHeight);
     }
 
     // BUCLE ONLINE
@@ -922,7 +983,9 @@
 
         let allKeys = Object.keys(allPlayers);
         let huntersCount = allKeys.filter(n => allPlayers[n].isHunter).length;
-        
+        let hidersRemaining = allKeys.length - huntersCount;
+        document.getElementById('hiders-count').innerText = hidersRemaining;
+
         if (isHost) {
             if (huntersCount === allKeys.length && allKeys.length > 1) {
                 db.ref(`rooms/${roomId}`).update({ winner: '¡EL CAZADOR ATRAPÓ A TODOS Y GANA!' });
@@ -935,8 +998,8 @@
         ctx.save();
         ctx.translate(canvas.width/2 - myPlayer.x, canvas.height/2 - myPlayer.y);
 
-        ctx.fillStyle = '#444'; ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
-        ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+        ctx.fillStyle = '#1a1a24'; ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+        ctx.strokeStyle = '#282838'; ctx.lineWidth = 2;
         for(let i=0; i<MAP_WIDTH; i+=100) {
             ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, MAP_HEIGHT); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(MAP_WIDTH, i); ctx.stroke();
@@ -949,16 +1012,22 @@
             }
         });
 
+        let extraLights = [];
         for (const pName in allPlayers) {
             if (pName !== playerName) {
                 const p = allPlayers[pName];
                 drawEntity(ctx, p.x, p.y, p.shape, p.color, p.isHunter);
                 if (myPlayer.isHunter && p.tauntTime && Date.now() - p.tauntTime < 4000) drawTauntArrow(myPlayer.x, myPlayer.y, p.x, p.y);
+                extraLights.push({ x: p.x, y: p.y, radius: p.isHunter ? 250 : 130 });
             }
         }
 
         drawEntity(ctx, myPlayer.x, myPlayer.y, myPlayer.shape, myPlayer.color, myPlayer.isHunter);
         ctx.restore();
+
+        mapLights.forEach(l => extraLights.push({ x: l.x, y: l.y, radius: l.radius }));
+        drawLightingSystem(ctx, myPlayer.x, myPlayer.y, canvas.width, canvas.height, myPlayer.isHunter ? 300 : 200, extraLights);
+
         gameLoopRef = requestAnimationFrame(onlineGameLoop);
     }
 
@@ -982,6 +1051,9 @@
             }
             if (hit) localBullets.splice(i, 1);
         }
+
+        let hidersRemaining = localPlayers.filter(p => !p.isHunter).length;
+        document.getElementById('hiders-count').innerText = hidersRemaining;
 
         if (localPlayers.every(p => p.isHunter)) {
             triggerVictoryScreen("¡EL CAZADOR ATRAPÓ A TODOS Y GANA!"); return;
@@ -1023,8 +1095,8 @@
             ctx.save();
             ctx.beginPath(); ctx.rect(vx, vy, w, h); ctx.clip();
             
-            ctx.fillStyle = '#444'; ctx.fillRect(vx, vy, w, h);
-            ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+            ctx.fillStyle = '#1a1a24'; ctx.fillRect(vx, vy, w, h);
+            ctx.strokeStyle = '#282838'; ctx.lineWidth = 2;
             ctx.translate(vx + w/2 - p.x, vy + h/2 - p.y);
 
             for(let j=0; j<MAP_WIDTH; j+=100) {
@@ -1043,192 +1115,140 @@
                 ctx.beginPath(); ctx.arc(b.x, b.y, 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
             });
 
+            let otherLights = [];
             localPlayers.forEach(other => {
                 if(other !== p) {
                     drawEntity(ctx, other.x, other.y, other.shape, other.color, other.isHunter);
                     if (p.isHunter && other.tauntTime && Date.now() - other.tauntTime < 4000) drawTauntArrow(p.x, p.y, other.x, other.y);
+                    otherLights.push({ x: other.x, y: other.y, radius: other.isHunter ? 250 : 130 });
                 }
             });
 
             drawEntity(ctx, p.x, p.y, p.shape, p.color, p.isHunter);
             ctx.restore();
 
+            mapLights.forEach(l => otherLights.push({ x: l.x, y: l.y, radius: l.radius }));
+            drawLightingSystem(ctx, p.x, p.y, w, h, p.isHunter ? 280 : 180, otherLights, vx, vy);
+
             if (p.isHunter) {
                 ctx.save();
-                ctx.fillStyle = 'rgba(255, 0, 0, 0.85)';
-                ctx.fillRect(vx + w - 130, vy + h - 65, 115, 45);
-                ctx.strokeStyle = 'white'; ctx.lineWidth = 3;
-                ctx.strokeRect(vx + w - 130, vy + h - 65, 115, 45);
-                ctx.fillStyle = 'white'; ctx.font = '18px "Permanent Marker"';
-                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText("💥 DISPARAR", vx + w - 72, vy + h - 42);
+                ctx.fillStyle = 'red'; ctx.font = '20px sans-serif'; ctx.fillText("🕵️ CAZADOR", vx + 10, vy + 30);
                 ctx.restore();
             }
-        });
 
-        ctx.strokeStyle = 'white'; ctx.lineWidth = 5; ctx.beginPath();
-        if(localPlayers.length === 2) { ctx.moveTo(w, 0); ctx.lineTo(w, canvas.height); }
-        else { ctx.moveTo(w, 0); ctx.lineTo(w, canvas.height); ctx.moveTo(0, h); ctx.lineTo(canvas.width, h); }
-        ctx.stroke();
+            ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 4; ctx.strokeRect(vx, vy, w, h);
+        });
 
         gameLoopRef = requestAnimationFrame(localGameLoop);
     }
 
-    function triggerVictoryScreen(winnerText) {
-        isPlaying = false;
-        stopBackgroundMusic();
-        playSound('win');
-        cancelAnimationFrame(gameLoopRef);
-        document.getElementById('victory-title').innerText = winnerText;
-        document.getElementById('victory-subtitle').innerText = winnerText.includes('CAZADOR') ? "¡Victoria absoluta para el cazador!" : "¡Jajajajajaj! Los escondedores se burlaron y ganaron la partida.";
-        document.getElementById('victory-screen').style.display = 'flex';
-        document.getElementById('game-ui').style.display = 'none';
+    // =========================================================
+    // DIBUJO DE BURLAS, FLECHAS Y FIGURAS
+    // =========================================================
+    function drawTauntArrow(hx, hy, px, py) {
+        let angle = Math.atan2(py - hy, px - hx);
+        let dist = 120;
+        let ax = hx + Math.cos(angle) * dist;
+        let ay = hy + Math.sin(angle) * dist;
+
+        ctx.save();
+        ctx.translate(ax, ay); ctx.rotate(angle);
+        ctx.fillStyle = '#ff3333'; ctx.beginPath();
+        ctx.moveTo(15, 0); ctx.lineTo(-15, -12); ctx.lineTo(-15, 12); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'white'; ctx.font = 'bold 12px sans-serif'; ctx.fillText('📢 BURLA', -25, -18);
+        ctx.restore();
     }
 
-    // INTERACCIONES DE CLIC / TOQUE
-    function changeMyShape(shape) { 
-        myPlayer.shape = shape; 
-        if(!isLocalMode && !isRobotMode && roomId) { 
-            db.ref(`rooms/${roomId}/players/${playerName}`).update({ shape: shape }); 
-        } 
+    function drawEntity(targetCtx, x, y, shape, color, isHunter) {
+        targetCtx.save();
+        targetCtx.translate(x, y);
+
+        if (isHunter) {
+            targetCtx.strokeStyle = 'black'; targetCtx.lineWidth = 4;
+            targetCtx.beginPath(); targetCtx.arc(0, -20, 12, 0, Math.PI * 2); targetCtx.fillStyle = '#ff3333'; targetCtx.fill(); targetCtx.stroke();
+            targetCtx.beginPath(); targetCtx.moveTo(0, -8); targetCtx.lineTo(0, 20); targetCtx.stroke();
+            targetCtx.beginPath(); targetCtx.moveTo(-15, 0); targetCtx.lineTo(15, 0); targetCtx.stroke();
+            targetCtx.beginPath(); targetCtx.moveTo(0, 20); targetCtx.lineTo(-12, 40); targetCtx.moveTo(0, 20); targetCtx.lineTo(12, 40); targetCtx.stroke();
+            targetCtx.fillStyle = 'black'; targetCtx.fillRect(-15, -35, 30, 8); targetCtx.fillRect(-10, -50, 20, 18);
+            targetCtx.restore(); return;
+        }
+
+        targetCtx.fillStyle = color; targetCtx.strokeStyle = 'black'; targetCtx.lineWidth = 3;
+
+        switch(shape) {
+            case 'sillon':
+                targetCtx.fillRect(-25, -20, 50, 40); targetCtx.strokeRect(-25, -20, 50, 40);
+                targetCtx.fillStyle = '#111'; targetCtx.fillRect(-25, -20, 10, 40); targetCtx.fillRect(15, -20, 10, 40);
+                break;
+            case 'tv':
+                targetCtx.fillStyle = '#333'; targetCtx.fillRect(-25, -20, 50, 35); targetCtx.strokeRect(-25, -20, 50, 35);
+                targetCtx.fillStyle = '#00ccff'; targetCtx.fillRect(-20, -15, 30, 25);
+                break;
+            case 'inodoro':
+                targetCtx.fillStyle = 'white'; targetCtx.fillRect(-15, -25, 30, 15); targetCtx.strokeRect(-15, -25, 30, 15);
+                targetCtx.beginPath(); targetCtx.arc(0, 5, 18, 0, Math.PI * 2); targetCtx.fill(); targetCtx.stroke();
+                break;
+            case 'cuadro':
+                targetCtx.fillStyle = '#8B4513'; targetCtx.fillRect(-20, -25, 40, 50); targetCtx.strokeRect(-20, -25, 40, 50);
+                targetCtx.fillStyle = '#2ecc71'; targetCtx.fillRect(-15, -20, 30, 40);
+                break;
+            case 'estatua':
+                targetCtx.fillStyle = '#95a5a6'; targetCtx.fillRect(-15, 10, 30, 15); targetCtx.strokeRect(-15, 10, 30, 15);
+                targetCtx.beginPath(); targetCtx.arc(0, -15, 12, 0, Math.PI*2); targetCtx.fill(); targetCtx.stroke();
+                targetCtx.fillRect(-8, -3, 16, 15); targetCtx.strokeRect(-8, -3, 16, 15);
+                break;
+            case 'pared':
+                targetCtx.fillStyle = '#7f8c8d'; targetCtx.fillRect(-30, -15, 60, 30); targetCtx.strokeRect(-30, -15, 60, 30);
+                targetCtx.strokeStyle = '#2c3e50';
+                targetCtx.beginPath(); targetCtx.moveTo(-30, 0); targetCtx.lineTo(30, 0); targetCtx.stroke();
+                break;
+            case 'arbol':
+                targetCtx.fillStyle = '#e74c3c'; targetCtx.fillRect(-10, 0, 20, 25); targetCtx.strokeRect(-10, 0, 20, 25);
+                targetCtx.fillStyle = '#27ae60'; targetCtx.beginPath(); targetCtx.arc(0, -10, 25, 0, Math.PI*2); targetCtx.fill(); targetCtx.stroke();
+                break;
+            default:
+                targetCtx.beginPath(); targetCtx.arc(0, -20, 10, 0, Math.PI * 2); targetCtx.fill(); targetCtx.stroke();
+                targetCtx.beginPath(); targetCtx.moveTo(0, -10); targetCtx.lineTo(0, 15); targetCtx.stroke();
+                targetCtx.beginPath(); targetCtx.moveTo(-10, 0); targetCtx.lineTo(10, 0); targetCtx.stroke();
+                targetCtx.beginPath(); targetCtx.moveTo(0, 15); targetCtx.lineTo(-10, 35); targetCtx.moveTo(0, 15); targetCtx.lineTo(10, 35); targetCtx.stroke();
+                break;
+        }
+        targetCtx.restore();
     }
 
-    function triggerTaunt() { 
-        if(!myPlayer.isHunter) { 
-            let t = Date.now(); 
-            myPlayer.tauntTime = t; 
+    function changeMyShape(val) {
+        myPlayer.shape = val;
+        if(roomId && isPlaying && !isLocalMode && !isRobotMode) {
+            db.ref(`rooms/${roomId}/players/${playerName}`).update({ shape: val });
+        }
+    }
+
+    function triggerTaunt() {
+        if (!myPlayer.isHunter) {
+            myPlayer.tauntTime = Date.now();
             playSound('taunt');
-            if(!isLocalMode && !isRobotMode && roomId) {
-                db.ref(`rooms/${roomId}/players/${playerName}`).update({ tauntTime: t }); 
-            }
-        } 
-    }
-
-    window.addEventListener('mousedown', e => {
-        if (!isPlaying || e.target.tagName !== 'CANVAS') return;
-
-        if (isLocalMode) {
-            let rows = localPlayers.length === 2 ? 1 : 2;
-            let cols = localPlayers.length === 2 ? 2 : 2;
-            let w = canvas.width / cols;
-            let h = canvas.height / rows;
-
-            localPlayers.forEach((p, i) => {
-                let col = i % cols; let row = Math.floor(i / cols);
-                let vx = col * w; let vy = row * h;
-
-                if (p.isHunter) {
-                    let btnX = vx + w - 130; let btnY = vy + h - 65;
-                    if (e.clientX >= btnX && e.clientX <= btnX + 115 && e.clientY >= btnY && e.clientY <= btnY + 45) {
-                        playSound('shoot');
-                        localBullets.push({ x: p.x, y: p.y, vx: 12, vy: 0, birthTime: Date.now() });
-                    }
-                }
-            });
-        } else if (isRobotMode) {
-            if (myPlayer.isHunter) {
-                const clickX = myPlayer.x + (e.clientX - canvas.width/2);
-                const clickY = myPlayer.y + (e.clientY - canvas.height/2);
-                playSound('catch');
-                robots.forEach(r => {
-                    if (!r.isHunter && Math.hypot(clickX - r.x, clickY - r.y) < 50) {
-                        r.isHunter = true;
-                        r.color = '#ff0000';
-                        r.shape = 'stickman';
-                        playSound('catch');
-                    }
-                });
-            } else {
-                for(let obj of mapObjects) {
-                    if (Math.hypot(myPlayer.x - obj.x, myPlayer.y - obj.y) < 80) {
-                        myPlayer.color = obj.color; changeMyShape(obj.type); break;
-                    }
-                }
-            }
-        } else {
-            if (myPlayer.isHunter) {
-                const clickX = myPlayer.x + (e.clientX - canvas.width/2);
-                const clickY = myPlayer.y + (e.clientY - canvas.height/2);
-                playSound('catch');
-                for (const pName in allPlayers) {
-                    if (pName !== playerName && !allPlayers[pName].isHunter) {
-                        if (Math.hypot(clickX - allPlayers[pName].x, clickY - allPlayers[pName].y) < 40) {
-                            db.ref(`rooms/${roomId}/players/${pName}`).update({ isHunter: true, color: '#ff0000', shape: 'stickman' });
-                            db.ref(`rooms/${roomId}/chat`).push({ sender: 'SISTEMA', text: `¡${playerName} ha cazado a ${pName}!` });
-                        }
-                    }
-                }
-            } else {
-                for(let obj of mapObjects) {
-                    if (Math.hypot(myPlayer.x - obj.x, myPlayer.y - obj.y) < 80) {
-                        myPlayer.color = obj.color; changeMyShape(obj.type); break;
-                    }
-                }
+            if (roomId && isPlaying && !isLocalMode && !isRobotMode) {
+                db.ref(`rooms/${roomId}/players/${playerName}`).update({ tauntTime: myPlayer.tauntTime });
             }
         }
-    });
+    }
 
-    // CHAT ONLINE
     function sendChat(e) {
-        if(e.key === 'Enter' && roomId && !isLocalMode && !isRobotMode) {
+        if (e.key === 'Enter') {
             const input = document.getElementById('chat-input');
             const txt = input.value.trim();
-            if(txt !== "") { db.ref(`rooms/${roomId}/chat`).push({ sender: playerName, text: txt }); input.value = ""; }
+            if (txt !== '' && roomId) {
+                db.ref(`rooms/${roomId}/chat`).push({ sender: playerName, text: txt });
+                input.value = '';
+            }
         }
     }
 
-    // DIBUJO DE ENTIDADES
-    function drawEntity(ctx, x, y, shape, color, isHunter) {
-        ctx.save(); ctx.translate(x, y);
-        ctx.fillStyle = color; ctx.strokeStyle = 'black'; ctx.lineWidth = 3;
-
-        if (shape === 'stickman') {
-            ctx.beginPath(); ctx.arc(0, -20, 15, 0, Math.PI*2); ctx.fill(); ctx.stroke(); 
-            ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(0, 25); ctx.stroke(); 
-            ctx.beginPath(); ctx.moveTo(0, 5); ctx.lineTo(-15, 15); ctx.stroke(); 
-            ctx.beginPath(); ctx.moveTo(0, 5); ctx.lineTo(15, 15); ctx.stroke(); 
-        } else if (shape === 'sillon') {
-            ctx.fillRect(-30, -20, 60, 40); ctx.strokeRect(-30, -20, 60, 40);
-            ctx.fillRect(-35, -30, 10, 50); ctx.strokeRect(-35, -30, 10, 50);
-        } else if (shape === 'tv') {
-            ctx.fillRect(-25, -20, 50, 40); ctx.strokeRect(-25, -20, 50, 40);
-            ctx.fillStyle = '#222'; ctx.fillRect(-20, -15, 40, 30); 
-        } else if (shape === 'inodoro') {
-            ctx.fillRect(-15, -20, 30, 40); ctx.strokeRect(-15, -20, 30, 40);
-            ctx.beginPath(); ctx.ellipse(0, 15, 20, 15, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-        } else if (shape === 'cuadro') {
-            ctx.fillStyle = '#8B4513'; ctx.fillRect(-30, -40, 60, 80);
-            ctx.fillStyle = color; ctx.fillRect(-20, -30, 40, 60);
-        } else if (shape === 'camara') {
-            ctx.fillRect(-15, -15, 30, 30); ctx.strokeRect(-15, -15, 30, 30);
-            ctx.beginPath(); ctx.arc(15, 0, 10, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-        } else if (shape === 'estatua') {
-            ctx.fillRect(-20, -10, 40, 60); ctx.strokeRect(-20, -10, 40, 60);
-            ctx.beginPath(); ctx.arc(0, -30, 20, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-        } else if (shape === 'pared') {
-            ctx.fillRect(-40, -40, 80, 80); ctx.strokeRect(-40, -40, 80, 80);
-            ctx.beginPath(); ctx.moveTo(-40, 0); ctx.lineTo(40, 0); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(0, -40); ctx.lineTo(0, 0); ctx.stroke();
-        } else if (shape === 'arbol') {
-            ctx.fillStyle = '#8B4513'; ctx.fillRect(-10, 0, 20, 40);
-            ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, -20, 35, 0, Math.PI*2); ctx.fill();
-        }
-
-        if (isHunter) { ctx.fillStyle = '#333'; ctx.fillRect(10, -5, 30, 10); }
-        ctx.restore();
-    }
-
-    function drawTauntArrow(hunterX, hunterY, targetX, targetY) {
-        const angle = Math.atan2(targetY - hunterY, targetX - hunterX);
-        const dist = 70; 
-        const arrowX = hunterX + Math.cos(angle) * dist;
-        const arrowY = hunterY + Math.sin(angle) * dist;
-        
-        ctx.save();
-        ctx.translate(arrowX, arrowY); ctx.rotate(angle);
-        ctx.fillStyle = '#ff0000'; ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 20;
-        ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(-10, 10); ctx.lineTo(-10, -10); ctx.fill();
-        ctx.restore();
+    function triggerVictoryScreen(title) {
+        isPlaying = false;
+        playSound('win');
+        document.getElementById('victory-title').innerText = title;
+        document.getElementById('victory-screen').style.display = 'flex';
     }
 </script>
 </body>
