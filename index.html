@@ -36,6 +36,8 @@
         #exit-btn { background: #ff4444; color: white; }
         #exit-btn:hover { background: #ff0000; }
         #mobile-toggle-btn { background: #00ccff; color: black; }
+        #hide-btn { background: #111; color: white; border-color: #555; }
+        #hide-btn:hover { background: #333; }
 
         /* CHAT */
         #chat-container { position: absolute; bottom: 20px; left: 20px; width: 280px; max-width: 40vw; background: rgba(255,255,255,0.9); border: 3px solid black; border-radius: 8px; pointer-events: auto; display: flex; flex-direction: column; transition: 0.2s; }
@@ -66,6 +68,10 @@
         #victory-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); color: white; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; font-size: 3rem; text-align: center; }
         .victory-anim { animation: bounceWin 0.8s infinite alternate; }
         @keyframes bounceWin { from { transform: scale(1); color: #ffcc00; } to { transform: scale(1.1); color: #ff4444; } }
+
+        /* CORTINA NEGRA ANTITRAMPAS */
+        #cortina-negra { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 99999; display: none; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; user-select: none; }
+        .cortina-texto { color: #222; font-family: sans-serif; font-size: 12px; margin: 0; }
 
         canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
     </style>
@@ -157,6 +163,7 @@
         <div id="people-counter">👥 Escondedores: <span id="hiders-count">0</span></div>
 
         <div id="top-right-btns">
+            <button id="hide-btn" class="small-btn" onclick="toggleCortinaNegra()">🙈 Ocultar</button>
             <button id="mobile-toggle-btn" class="small-btn" onclick="toggleMobileControls()">📱 Modo Celular</button>
             <button id="exit-btn" class="small-btn" onclick="leaveGame()">X Salir</button>
         </div>
@@ -205,7 +212,12 @@
         </div>
     </div>
 
-    <!-- PANTALLA NEGRA DEL CAZADOR -->
+    <!-- CORTINA NEGRA ANTITRAMPAS -->
+    <div id="cortina-negra" onclick="toggleCortinaNegra()">
+        <p class="cortina-texto">Toca la pantalla para volver al juego</p>
+    </div>
+
+    <!-- PANTALLA CIEGA DEL CAZADOR -->
     <div id="blind-screen">
         ¡ERES EL CAZADOR!<br>
         <span style="font-size: 1.5rem; color: white;">Espera a que se escondan...</span>
@@ -222,6 +234,19 @@
     <canvas id="gameCanvas" style="display: none;"></canvas>
 
 <script>
+    // ---------------------------------------------------------
+    // CORTINA NEGRA ANTITRAMPAS
+    // ---------------------------------------------------------
+    function toggleCortinaNegra() {
+        const cortina = document.getElementById('cortina-negra');
+        if (!cortina) return;
+        if (cortina.style.display === 'flex') {
+            cortina.style.display = 'none';
+        } else {
+            cortina.style.display = 'flex';
+        }
+    }
+
     // ---------------------------------------------------------
     // 1. CONFIGURACIÓN DE FIREBASE Y AUDIO SINTETIZADOR
     // ---------------------------------------------------------
